@@ -167,9 +167,9 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
         <div class="logo-sub">Torneira · Jardineira</div>
       </div>
     </div>
-    <div class="badge" id="faucetBadge">
+    <div class="badge" id="deviceBadge">
       <div class="dot"></div>
-      <span id="faucetStatus">—</span>
+      <span id="deviceStatus">—</span>
     </div>
   </header>
 
@@ -350,15 +350,25 @@ function updateUI(status) {
   const liters    = todayData.litros || 0;
   const faucetOn  = status.torneira || false;
 
+  // Indicador de status do dispositivo (online/offline)
+  // Considera offline se: dispositivo != "online" OU sem ping há mais de 10 min
+  const dispositivoOnline = status.dispositivo === "online";
+  let deviceOnline = dispositivoOnline;
+  if (dispositivoOnline && status.ultimaAtualizacao) {
+    try {
+      const lastTs = new Date(status.ultimaAtualizacao.replace(' ', 'T'));
+      if ((Date.now() - lastTs) / 60000 > 10) deviceOnline = false;
+    } catch(e) {}
+  }
+  const badge = document.getElementById('deviceBadge');
+  badge.className = 'badge' + (deviceOnline ? '' : ' off');
+  document.getElementById('deviceStatus').textContent = deviceOnline ? 'Online' : 'Offline';
+
   // Hero
   document.getElementById('heroLiters').textContent = fmtL(liters);
   const sv = document.getElementById('heroStatus');
   sv.textContent  = faucetOn ? '● Ligada' : '○ Desligada';
   sv.className    = 'hs-v ' + (faucetOn ? 'on' : 'off');
-
-  const badge = document.getElementById('faucetBadge');
-  badge.className = 'badge' + (faucetOn ? '' : ' off');
-  document.getElementById('faucetStatus').textContent = faucetOn ? 'Ligada' : 'Desligada';
 
   // Mês
   const monthStr  = today.slice(0,7);
