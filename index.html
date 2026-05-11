@@ -883,39 +883,72 @@ function buildSessions(){
 }
 
 // ============================================================
-//  CHUVA — busca precipitação mensal no Open-Meteo
+//  CHUVA — Open-Meteo: Forecast API (recente) + Archive (meses anteriores)
+//
+//  Forecast API: sem delay, cobre hoje + até 16 dias atrás
+//  Archive API:  delay ~2 dias, cobre meses anteriores
 // ============================================================
 async function fetchRain(year, month) {
-  const key = `${year}-${String(month+1).padStart(2,'0')}`;
-  if (rainCache[key]) return rainCache[key];
+  const cacheKey   = `${year}-${String(month+1).padStart(2,'0')}`;
+  const hoje       = new Date();
+  const inicioMes  = new Date(year, month, 1);
+  const fimMes     = new Date(year, month+1, 0);
+  const start      = `${year}-${String(month+1).padStart(2,'0')}-01`;
+  const end        = `${year}-${String(month+1).padStart(2,'0')}-${String(fimMes.getDate()).padStart(2,'0')}`;
 
-  // Tenta recuperar do sessionStorage
-  const cached = sessionStorage.getItem('rain_' + key);
-  if (cached) {
-    rainCache[key] = JSON.parse(cached);
-    return rainCache[key];
+  // Limite confiável da Archive API: 2 dias atrás
+  const limiteArchive = new Date(hoje);
+  limiteArchive.setDate(hoje.getDate() - 2);
+
+  const ehMesAtual      = year === hoje.getFullYear() && month === hoje.getMonth();
+  const precisaForecast = fimMes  >= limiteArchive;
+  const precisaArchive  = inicioMes <= limiteArchive;
+
+  // Cache: meses passados ficam no sessionStorage; mês atual nunca (dados mudam)
+  if (!ehMesAtual && rainCache[cacheKey]) return rainCache[cacheKey];
+  if (!ehMesAtual) {
+    const cached = sessionStorage.getItem('rain_' + cacheKey);
+    if (cached) { rainCache[cacheKey] = JSON.parse(cached); return rainCache[cacheKey]; }
   }
 
-  const start = `${year}-${String(month+1).padStart(2,'0')}-01`;
-  const lastDay = new Date(year, month+1, 0).getDate();
-  const end   = `${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const map = {};
 
-  try {
-    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${RAIN_LAT}&longitude=${RAIN_LON}&start_date=${start}&end_date=${end}&daily=precipitation_sum&timezone=America%2FSao_Paulo`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    const map = {};
-    (data.daily?.time || []).forEach((d, i) => {
-      map[d] = data.daily.precipitation_sum[i] || 0;
-    });
-    rainCache[key] = map;
-    try { sessionStorage.setItem('rain_' + key, JSON.stringify(map)); } catch(e){}
-    return map;
-  } catch(e) {
-    console.warn('Open-Meteo indisponível:', e);
-    return {};
+  // --- Archive API (dias com delay suficiente) ---
+  if (precisaArchive) {
+    const pad = n => String(n).padStart(2,'0');
+    const archiveEnd = ehMesAtual
+      ? `${limiteArchive.getFullYear()}-${pad(limiteArchive.getMonth()+1)}-${pad(limiteArchive.getDate())}`
+      : end;
+    try {
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${RAIN_LAT}&longitude=${RAIN_LON}&start_date=${start}&end_date=${archiveEnd}&daily=precipitation_sum&timezone=America%2FSao_Paulo`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const data = await r.json();
+        (data.daily?.time || []).forEach((d, i) => { map[d] = data.daily.precipitation_sum[i] || 0; });
+      }
+    } catch(e) { console.warn('Archive API falhou:', e); }
   }
+
+  // --- Forecast API com past_days (sem delay, cobre últimos 16 dias) ---
+  if (precisaForecast) {
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${RAIN_LAT}&longitude=${RAIN_LON}&daily=precipitation_sum&timezone=America%2FSao_Paulo&past_days=16&forecast_days=1`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const data = await r.json();
+        (data.daily?.time || []).forEach((d, i) => {
+          if (d >= start && d <= end)
+            map[d] = data.daily.precipitation_sum[i] || 0;
+        });
+      }
+    } catch(e) { console.warn('Forecast API falhou:', e); }
+  }
+
+  rainCache[cacheKey] = map;
+  if (!ehMesAtual) {
+    try { sessionStorage.setItem('rain_' + cacheKey, JSON.stringify(map)); } catch(e){}
+  }
+  return map;
 }
 
 // ============================================================
