@@ -334,6 +334,17 @@ header {
   color:#fff; font-weight:700; box-shadow:0 0 12px rgba(56,200,255,0.2);
 }
 .day.empty { opacity:0; pointer-events:none; border:none; background:transparent; }
+.day.selected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(56,200,255,0.35), 0 0 16px rgba(56,200,255,0.2);
+}
+.day .rain-drop {
+  position:absolute; top:3px; right:4px;
+  font-size:8px; line-height:1;
+  filter: drop-shadow(0 0 3px rgba(56,200,255,0.6));
+  pointer-events:none;
+}
+.day { position:relative; }
 .day-dot { width:3px; height:3px; border-radius:50%; background:currentColor; }
 
 /* MONTH NAV */
@@ -568,6 +579,15 @@ header {
       </div>
       <div class="days-grid" id="daysGrid"></div>
     </div>
+
+    <!-- DETALHE DO DIA SELECIONADO -->
+    <div class="card" id="dayDetail" style="display:none">
+      <div class="card-header">
+        <span class="card-title" id="dayDetailTitle">—</span>
+        <button onclick="closeDayDetail()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:0 2px;">✕</button>
+      </div>
+      <div id="dayDetailBody"></div>
+    </div>
   </div>
 
   <!-- TAB HISTÓRICO -->
@@ -688,6 +708,14 @@ function moveIndicator(btn){
 let allData={}, chart=null, calMonth=new Date();
 
 // ============================================================
+//  CHUVA — Open-Meteo (sem API key, gratuito)
+// ============================================================
+const RAIN_LAT   = -23.5305;
+const RAIN_LON   = -46.7282;
+const RAIN_MIN_MM = 5.0;   // ≥5mm = equivale a uma rega no vaso
+let rainCache = {};         // chave: "YYYY-MM" → { "YYYY-MM-DD": mm, ... }
+
+// ============================================================
 //  INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded',()=>{
@@ -745,7 +773,7 @@ function animNum(el, to, dec){
 // ============================================================
 //  UI
 // ============================================================
-function updateUI(status){
+async function updateUI(status){
   const today=dateStr(new Date());
   const liters=(allData[today]||{}).litros||0;
   const faucetOn=status.torneira||false;
@@ -782,7 +810,7 @@ function updateUI(status){
   document.getElementById('lastUpdate').textContent=
     upd?'⟳ atualizado '+relTime(upd):'⟳ aguardando dados do sensor...';
 
-  buildChart(); buildSessions(); buildCalendar(); buildHistory();
+  buildChart(); buildSessions(); buildHistory(); await buildCalendar();
 }
 
 // ============================================================
@@ -855,9 +883,45 @@ function buildSessions(){
 }
 
 // ============================================================
+//  CHUVA — busca precipitação mensal no Open-Meteo
+// ============================================================
+async function fetchRain(year, month) {
+  const key = `${year}-${String(month+1).padStart(2,'0')}`;
+  if (rainCache[key]) return rainCache[key];
+
+  // Tenta recuperar do sessionStorage
+  const cached = sessionStorage.getItem('rain_' + key);
+  if (cached) {
+    rainCache[key] = JSON.parse(cached);
+    return rainCache[key];
+  }
+
+  const start = `${year}-${String(month+1).padStart(2,'0')}-01`;
+  const lastDay = new Date(year, month+1, 0).getDate();
+  const end   = `${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+
+  try {
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${RAIN_LAT}&longitude=${RAIN_LON}&start_date=${start}&end_date=${end}&daily=precipitation_sum&timezone=America%2FSao_Paulo`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const map = {};
+    (data.daily?.time || []).forEach((d, i) => {
+      map[d] = data.daily.precipitation_sum[i] || 0;
+    });
+    rainCache[key] = map;
+    try { sessionStorage.setItem('rain_' + key, JSON.stringify(map)); } catch(e){}
+    return map;
+  } catch(e) {
+    console.warn('Open-Meteo indisponível:', e);
+    return {};
+  }
+}
+
+// ============================================================
 //  CALENDÁRIO
 // ============================================================
-function buildCalendar(){
+async function buildCalendar(){
   const grid=document.getElementById('daysGrid');
   grid.innerHTML='';
   const y=calMonth.getFullYear(),m=calMonth.getMonth();
@@ -869,20 +933,29 @@ function buildCalendar(){
   const total=new Date(y,m+1,0).getDate();
   const today=dateStr(new Date());
   const allL=monthDays(ms).map(k=>(allData[k]||{}).litros||0);
+
+  // Busca dados de chuva (pode vir do cache)
+  const rainMap = await fetchRain(y, m);
+
   for(let i=0;i<first;i++){const e=document.createElement('div');e.className='day empty';grid.appendChild(e);}
   for(let d=1;d<=total;d++){
     const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const l=(allData[key]||{}).litros||0;
     const isToday=key===today;
     const isHigh=l>0&&l===Math.max(...allL);
+    const rainMM = rainMap[key] || 0;
+    const rained  = rainMM >= RAIN_MIN_MM;
     const cell=document.createElement('div');
     cell.className='day '+(isToday?'today':isHigh&&l>0?'high':l>.1?'used':'');
-    cell.title=l>.1?fmtL(l)+' L':'Sem uso';
-    cell.innerHTML=`${d}${l>.1||isToday?'<div class="day-dot"></div>':''}`;
+    cell.title = '';
+    cell.style.cursor = 'pointer';
+    cell.dataset.key = key;
+    cell.dataset.day = d;
+    cell.innerHTML=`${d}${l>.1||isToday?'<div class="day-dot"></div>':''}${rained?'<span class="rain-drop">💧</span>':''}`;
+    cell.addEventListener('click', () => openDayDetail(key, d, m, y));
     grid.appendChild(cell);
   }
 }
-function changeMonth(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);buildCalendar();}
 
 // ============================================================
 //  HISTÓRICO
@@ -946,6 +1019,80 @@ function showTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn){btn.classList.add('active');moveIndicator(btn);}
   if(name==='mes') buildCalendar();
+}
+
+function changeMonth(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);buildCalendar();}
+
+// ============================================================
+//  DETALHE DO DIA
+// ============================================================
+function openDayDetail(key, day, month, year) {
+  const MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+             'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const dt = new Date(key + 'T12:00:00');
+  const diaSemana = DIAS[dt.getDay()];
+
+  // Marca célula como selecionada
+  document.querySelectorAll('.day.selected').forEach(c => c.classList.remove('selected'));
+  const clicked = document.querySelector(`.day[data-key="${key}"]`);
+  if (clicked) clicked.classList.add('selected');
+
+  const title = document.getElementById('dayDetailTitle');
+  title.textContent = `${diaSemana}, ${String(day).padStart(2,'0')} de ${MES[month]}`;
+
+  const body = document.getElementById('dayDetailBody');
+  const dayData = allData[key] || {};
+  const sessoes = dayData.sessoes ? Object.values(dayData.sessoes) : [];
+  // fallback: se litros não vier direto, soma das sessões
+  const litros = dayData.litros || sessoes.reduce((a, s) => a + (s.litros || 0), 0);
+
+  if (litros < 0.1 && sessoes.length === 0) {
+    body.innerHTML = `<div class="no-uso" style="padding:8px 0">Nenhum uso registrado neste dia.</div>`;
+  } else {
+    let html = `
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:16px">
+        <span style="font-size:36px;font-weight:900;background:linear-gradient(135deg,#fff 20%,var(--accent3) 60%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${fmtL(litros)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">litros no total</span>
+      </div>`;
+
+    if (sessoes.length > 0) {
+      const mxS = Math.max(...sessoes.map(s => s.litros || 0), 1);
+      html += `<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Sessões da mangueira</div>`;
+      html += `<div class="sessions">`;
+      sessoes
+        .sort((a, b) => (a.inicio || '').localeCompare(b.inicio || ''))
+        .forEach((s, i) => {
+          const l = s.litros || 0;
+          const inicio = s.inicio ? s.inicio.slice(11, 16) : '—';
+          const fim    = s.fim    ? s.fim.slice(11, 16)    : '—';
+          html += `
+            <div class="si" style="animation-delay:${i*60}ms">
+              <span class="si-date">${inicio}–${fim}</span>
+              <div class="bw"><div class="b" style="width:${Math.round(l/mxS*100)}%"></div></div>
+              <span class="si-l">${fmtL(l)} <span>L</span></span>
+            </div>`;
+        });
+      html += `</div>`;
+    } else {
+      html += `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:4px">Sem detalhes de sessão registrados.</div>`;
+    }
+
+    body.innerHTML = html;
+  }
+
+  const panel = document.getElementById('dayDetail');
+  panel.style.removeProperty('display');
+  panel.style.display = 'block';
+  panel.style.animation = 'none';
+  void panel.offsetWidth;
+  panel.style.animation = 'slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both';
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+}
+
+function closeDayDetail() {
+  document.getElementById('dayDetail').style.display = 'none';
+  document.querySelectorAll('.day.selected').forEach(c => c.classList.remove('selected'));
 }
 
 // ============================================================
