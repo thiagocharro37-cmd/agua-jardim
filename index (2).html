@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>💧 Água Jardim</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #020b18;
+  --bg2:      #041020;
+  --glass:    rgba(4,20,42,0.72);
+  --glass2:   rgba(6,28,56,0.55);
+  --border:   rgba(56,200,255,0.10);
+  --border2:  rgba(56,200,255,0.24);
+  --border3:  rgba(56,200,255,0.42);
+  --accent:   #38c8ff;
+  --accent2:  #0ea5e9;
+  --accent3:  #7de8ff;
+  --glow:     rgba(56,200,255,0.18);
+  --glow2:    rgba(56,200,255,0.35);
+  --text:     #dff4ff;
+  --text2:    #8bbccc;
+  --text3:    #4a7a8a;
+  --green:    #2de3a0;
+  --green2:   rgba(45,227,160,0.15);
+  --amber:    #fbbf24;
+  --red:      #f87171;
+  --r:        20px;
+  --rs:       12px;
+}
+
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box }
+html { scroll-behavior:smooth }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#bgCanvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+.app {
+  position: relative; z-index: 1;
+  max-width: 520px; margin: 0 auto;
+  padding: 22px 16px 80px;
+}
+
+/* LOADING */
+#loading {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+  transition: opacity 0.6s, visibility 0.6s;
+}
+#loading.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.load-orb {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--accent3), var(--accent2));
+  box-shadow: 0 0 40px var(--glow2), 0 0 80px var(--glow);
+  animation: orbPulse 1.8s ease-in-out infinite;
+}
+.load-txt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text3);
+  letter-spacing: 2px; text-transform: uppercase;
+}
+@keyframes orbPulse {
+  0%,100% { transform:scale(1); box-shadow:0 0 40px var(--glow2),0 0 80px var(--glow); }
+  50%      { transform:scale(1.12); box-shadow:0 0 60px var(--glow2),0 0 120px var(--glow); }
+}
+
+/* HEADER */
+header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  animation: slideDown 0.6s cubic-bezier(0.22,1,0.36,1) both;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-orb {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(56,200,255,0.3), 0 0 24px var(--glow), 0 0 48px rgba(56,200,255,0.08);
+  animation: orbFloat 6s ease-in-out infinite;
+}
+@keyframes orbFloat {
+  0%,100% { transform:translateY(0) rotate(0deg); }
+  33%      { transform:translateY(-3px) rotate(1deg); }
+  66%      { transform:translateY(2px) rotate(-1deg); }
+}
+.logo-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
+.logo-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--text3);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-top: 1px;
+}
+
+/* BADGE */
+.badge {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--green2);
+  border: 1px solid rgba(45,227,160,0.30);
+  border-radius: 24px; padding: 6px 13px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--green);
+  transition: all 0.5s cubic-bezier(0.22,1,0.36,1);
+  backdrop-filter: blur(8px);
+}
+.badge.off {
+  background: rgba(248,113,113,0.10);
+  border-color: rgba(248,113,113,0.28); color: var(--red);
+}
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+.badge:not(.off) .dot { animation: dotPulse 2s ease-in-out infinite; }
+@keyframes dotPulse {
+  0%,100% { opacity:1; transform:scale(1); box-shadow:0 0 0 0 currentColor; }
+  50%      { opacity:0.7; transform:scale(1.2); }
+}
+
+/* LAST UPDATE */
+.upd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text3);
+  text-align: center; margin-bottom: 18px;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+
+/* ERROR */
+.err {
+  display: none;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.22);
+  border-radius: var(--rs); padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--red);
+  margin-bottom: 14px; text-align: center;
+}
+
+/* HERO */
+.hero {
+  position: relative; overflow: hidden;
+  border-radius: 24px; margin-bottom: 14px;
+  background: linear-gradient(160deg, #041628 0%, #061c38 50%, #030f20 100%);
+  border: 1px solid var(--border2);
+  padding: 28px 24px 24px;
+  animation: slideUp 0.7s 0.05s cubic-bezier(0.22,1,0.36,1) both;
+  box-shadow: 0 0 0 1px rgba(56,200,255,0.04), 0 8px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(56,200,255,0.12);
+}
+.hero-shimmer {
+  position: absolute; top: 0; left: -100%; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent3), transparent);
+  animation: shimmer 3.5s ease-in-out infinite;
+}
+@keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
+
+.hero-wave {
+  position: absolute; bottom: -2px; left: 0; right: 0;
+  height: 56px; overflow: hidden; opacity: 0.15;
+  pointer-events: none;
+}
+.hero-wave svg { width: 200%; height: 100%; animation: waveMove 8s linear infinite; }
+@keyframes waveMove { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+.hero-glow {
+  position: absolute; top: -40px; right: -40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(56,200,255,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--accent);
+  letter-spacing: 2.5px; text-transform: uppercase;
+  margin-bottom: 10px; position: relative;
+}
+
+.hero-value {
+  font-size: clamp(52px,15vw,68px);
+  font-weight: 900; line-height: 1;
+  background: linear-gradient(135deg, #fff 20%, var(--accent3) 60%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; position: relative;
+}
+.hero-unit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text3);
+  margin-bottom: 22px; margin-top: 3px; position: relative;
+}
+
+.hero-row {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 12px; position: relative;
+}
+.hs { display: flex; flex-direction: column; gap: 4px; }
+.hs-l {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 1.2px;
+}
+.hs-v { font-size: 13px; font-weight: 700; }
+.on  { color: var(--green); }
+.off { color: var(--text3); }
+.warn{ color: var(--amber); }
+
+/* MINI CARDS */
+.mini-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 14px;
+}
+.mini-card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--r); padding: 18px 16px;
+  backdrop-filter: blur(16px);
+  position: relative; overflow: hidden;
+  transition: border-color 0.3s, transform 0.3s;
+  animation: slideUp 0.6s ease both;
+}
+.mini-card:nth-child(1){animation-delay:.15s}
+.mini-card:nth-child(2){animation-delay:.20s}
+.mini-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.mini-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(56,200,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.mini-icon { font-size: 22px; margin-bottom: 10px; }
+.mini-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
+}
+.mini-val { font-size: clamp(22px,6vw,28px); font-weight: 800; }
+.mini-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--text3); margin-top: 2px;
+}
+
+/* TABS */
+.tabs {
+  display: flex; gap: 4px;
+  background: rgba(4,20,42,0.8);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 4px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(12px);
+  animation: fadeUp 0.5s 0.28s ease both;
+  position: relative;
+}
+.tab-indicator {
+  position: absolute; top: 4px; bottom: 4px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(56,200,255,0.10));
+  border: 1px solid var(--border2);
+  transition: left 0.35s cubic-bezier(0.22,1,0.36,1), width 0.35s cubic-bezier(0.22,1,0.36,1);
+  pointer-events: none;
+}
+.tab-btn {
+  flex: 1; padding: 9px 4px;
+  background: transparent; border: none; border-radius: 10px;
+  font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+  color: var(--text3); cursor: pointer;
+  transition: color 0.25s; position: relative; z-index: 1;
+}
+.tab-btn.active { color: var(--accent); }
+
+/* CARDS */
+.card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--r); padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(16px);
+  animation: slideUp 0.6s ease both;
+  transition: border-color 0.3s;
+}
+.card:hover { border-color: rgba(56,200,255,0.16); }
+.card-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 18px;
+}
+.card-title { font-size: 15px; font-weight: 700; }
+.chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  background: rgba(56,200,255,0.07);
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 4px 10px; color: var(--text3);
+}
+
+/* CHART */
+.chart-wrap { height: 155px; }
+
+/* CALENDAR */
+.days-labels {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  gap: 5px; margin-bottom: 5px;
+}
+.days-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; color: var(--text3);
+  text-align: center; text-transform: uppercase;
+}
+.days-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+.day {
+  aspect-ratio: 1; border-radius: 10px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  border: 1px solid var(--border);
+  background: rgba(4,20,42,0.6);
+  color: var(--text3); gap: 2px; cursor: default;
+  transition: transform 0.15s, border-color 0.2s;
+}
+.day:hover { transform: scale(1.1); }
+.day.used  { background:rgba(56,200,255,0.07); border-color:rgba(56,200,255,0.28); color:var(--accent3); }
+.day.high  { background:rgba(251,191,36,0.08); border-color:rgba(251,191,36,0.32); color:var(--amber); }
+.day.today {
+  background:rgba(56,200,255,0.14); border-color:var(--accent);
+  color:#fff; font-weight:700; box-shadow:0 0 12px rgba(56,200,255,0.2);
+}
+.day.empty { opacity:0; pointer-events:none; border:none; background:transparent; }
+.day.selected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(56,200,255,0.35), 0 0 16px rgba(56,200,255,0.2);
+}
+.day .rain-drop {
+  position:absolute; top:3px; right:4px;
+  font-size:8px; line-height:1;
+  filter: drop-shadow(0 0 3px rgba(56,200,255,0.6));
+  pointer-events:none;
+}
+.day { position:relative; }
+.day-dot { width:3px; height:3px; border-radius:50%; background:currentColor; }
+
+/* MONTH NAV */
+.month-nav { display:flex; align-items:center; gap:8px; }
+.month-btn {
+  background: rgba(56,200,255,0.06);
+  border: 1px solid var(--border); border-radius:8px;
+  padding:4px 11px; color:var(--text2); font-size:16px; cursor:pointer;
+  transition:border-color 0.2s,color 0.2s,background 0.2s; line-height:1;
+}
+.month-btn:hover { border-color:var(--border2); color:var(--accent); background:rgba(56,200,255,0.10); }
+.month-label {
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  color:var(--text2); min-width:72px; text-align:center;
+}
+
+/* SESSIONS */
+.sessions { display:flex; flex-direction:column; gap:8px; }
+.si {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 14px;
+  background:rgba(4,16,34,0.6);
+  border-radius:var(--rs); border:1px solid var(--border);
+  transition:border-color 0.2s,transform 0.2s,background 0.2s;
+  animation:slideRight 0.4s ease both;
+}
+.si:hover { border-color:var(--border2); background:rgba(56,200,255,0.04); transform:translateX(3px); }
+.si-date {
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px; color:var(--text3); min-width:68px;
+}
+.bw { flex:1; height:4px; background:rgba(56,200,255,0.07); border-radius:2px; overflow:hidden; }
+.b {
+  height:100%; border-radius:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));
+  transition:width 0.8s cubic-bezier(0.22,1,0.36,1);
+  box-shadow:0 0 8px rgba(56,200,255,0.3);
+}
+.si-l {
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px; font-weight:500; min-width:54px; text-align:right;
+}
+.si-l span { font-size:8px; color:var(--text3); }
+.no-uso { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); }
+
+/* CALC */
+.ig { margin-bottom:14px; }
+.il {
+  font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text3);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:7px;
+}
+.ir {
+  display:flex; align-items:center;
+  background:rgba(4,16,34,0.7);
+  border:1px solid var(--border); border-radius:var(--rs); overflow:hidden;
+  transition:border-color 0.25s,box-shadow 0.25s;
+}
+.ir:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(56,200,255,0.10); }
+.ip {
+  padding:12px 13px; font-family:'JetBrains Mono',monospace;
+  font-size:11px; color:var(--accent);
+  border-right:1px solid var(--border); white-space:nowrap;
+  background:rgba(56,200,255,0.04);
+}
+.ir input {
+  flex:1; background:transparent; border:none; outline:none;
+  padding:12px 13px; color:var(--text);
+  font-family:'JetBrains Mono',monospace; font-size:14px; min-width:0;
+}
+.ir input::placeholder { color:var(--text3); }
+.calc-btn {
+  width:100%; padding:14px;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border:none; border-radius:14px;
+  color:#021020; font-family:'Outfit',sans-serif;
+  font-size:14px; font-weight:800; cursor:pointer;
+  transition:opacity 0.2s,transform 0.15s,box-shadow 0.2s;
+  margin-top:4px; box-shadow:0 4px 24px rgba(56,200,255,0.25);
+}
+.calc-btn:hover { opacity:0.92; box-shadow:0 6px 32px rgba(56,200,255,0.38); }
+.calc-btn:active { transform:scale(0.97); }
+.result-box {
+  display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(135deg,rgba(56,200,255,0.07),rgba(14,165,233,0.04));
+  border:1px solid rgba(56,200,255,0.22); border-radius:16px;
+  padding:18px; margin-top:14px;
+  animation:popIn 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+@keyframes popIn {
+  from{opacity:0;transform:scale(0.92) translateY(8px)}
+  to  {opacity:1;transform:scale(1) translateY(0)}
+}
+.rl {
+  font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text3);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;
+}
+.rv { font-size:clamp(24px,7vw,30px); font-weight:900; color:var(--accent); }
+.rd { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text3); text-align:right; line-height:1.8; }
+
+/* FAB */
+.fab {
+  position:fixed; bottom:22px; right:18px; z-index:10;
+  width:50px; height:50px;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border:none; border-radius:50%;
+  color:#021020; font-size:18px; cursor:pointer;
+  box-shadow:0 4px 24px rgba(56,200,255,0.38),0 0 48px rgba(56,200,255,0.12);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.fab:hover { transform:scale(1.1); box-shadow:0 6px 32px rgba(56,200,255,0.50); }
+.fab:active { transform:scale(0.94); }
+.fab.spinning svg { animation:spin 0.7s linear infinite; }
+
+@keyframes slideDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideUp   { from{opacity:0;transform:translateY(22px)}  to{opacity:1;transform:translateY(0)} }
+@keyframes slideRight{ from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeUp    { from{opacity:0;transform:translateY(10px)}  to{opacity:1;transform:translateY(0)} }
+@keyframes spin      { to{transform:rotate(360deg)} }
+
+@media(max-width:360px){
+  .hero-row{grid-template-columns:repeat(2,1fr)}.hs:last-child{display:none}
+  .days-lbl{font-size:7px}.day{font-size:9px}
+}
+@media(min-width:521px){.app{padding:30px 24px 80px}}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div id="loading">
+  <div class="load-orb"></div>
+  <div class="load-txt">carregando dados...</div>
+</div>
+
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-orb">💧</div>
+      <div>
+        <div class="logo-name">Água Jardim</div>
+        <div class="logo-sub">Torneira · Jardineira</div>
+      </div>
+    </div>
+    <div class="badge" id="deviceBadge">
+      <div class="dot"></div>
+      <span id="deviceStatus">—</span>
+    </div>
+  </header>
+
+  <div class="upd" id="lastUpdate">Sincronizando...</div>
+  <div class="err" id="errBanner">⚠ Erro ao carregar dados do Firebase.</div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-shimmer"></div>
+    <div class="hero-glow"></div>
+    <div class="hero-tag">Consumo de hoje</div>
+    <div class="hero-value" id="heroLiters">—</div>
+    <div class="hero-unit">litros utilizados</div>
+    <div class="hero-row">
+      <div class="hs"><span class="hs-l">Status</span><span class="hs-v" id="heroStatus">—</span></div>
+      <div class="hs"><span class="hs-l">Este mês</span><span class="hs-v" id="heroMonth" style="color:var(--accent)">—</span></div>
+      <div class="hs"><span class="hs-l">Dias ativos</span><span class="hs-v warn" id="heroDays">—</span></div>
+    </div>
+    <div class="hero-wave">
+      <svg viewBox="0 0 800 60" preserveAspectRatio="none" fill="none">
+        <path d="M0 30 Q100 10 200 30 Q300 50 400 30 Q500 10 600 30 Q700 50 800 30 Q900 10 1000 30 Q1100 50 1200 30 Q1300 10 1400 30 Q1500 50 1600 30 L1600 60 L0 60Z" fill="var(--accent)"/>
+        <path d="M0 38 Q100 18 200 38 Q300 58 400 38 Q500 18 600 38 Q700 58 800 38 Q900 18 1000 38 Q1100 58 1200 38 Q1300 18 1400 38 Q1500 58 1600 38 L1600 60 L0 60Z" fill="var(--accent2)" opacity="0.5"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- MINI CARDS -->
+  <div class="mini-grid">
+    <div class="mini-card">
+      <div class="mini-icon">📊</div>
+      <div class="mini-tag">Média diária</div>
+      <div class="mini-val" id="avgDaily" style="color:var(--accent)">—</div>
+      <div class="mini-sub">litros / dia ativo</div>
+    </div>
+    <div class="mini-card">
+      <div class="mini-icon">🌊</div>
+      <div class="mini-tag">Mês em m³</div>
+      <div class="mini-val" id="monthM3" style="color:var(--green)">—</div>
+      <div class="mini-sub">metros cúbicos</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabsContainer">
+    <div class="tab-indicator" id="tabIndicator"></div>
+    <button class="tab-btn active" onclick="showTab('semana',this)">7 dias</button>
+    <button class="tab-btn" onclick="showTab('mes',this)">Mês</button>
+    <button class="tab-btn" onclick="showTab('historico',this)">Histórico</button>
+    <button class="tab-btn" onclick="showTab('calc',this)">Calcular</button>
+  </div>
+
+  <!-- TAB SEMANA -->
+  <div id="tab-semana">
+    <div class="card" style="animation-delay:.18s">
+      <div class="card-header">
+        <span class="card-title">Últimos 7 dias</span>
+        <span class="chip" id="weekTotal">— L</span>
+      </div>
+      <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
+    </div>
+    <div class="card" style="animation-delay:.24s">
+      <div class="card-header"><span class="card-title">Consumo recente</span></div>
+      <div class="sessions" id="sessionsList"><div class="no-uso">Carregando...</div></div>
+    </div>
+  </div>
+
+  <!-- TAB MÊS -->
+  <div id="tab-mes" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Calendário</span>
+        <div class="month-nav">
+          <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+          <span class="month-label" id="calLabel">—</span>
+          <button class="month-btn" onclick="changeMonth(1)">›</button>
+        </div>
+      </div>
+      <div class="days-labels">
+        <div class="days-lbl">Dom</div><div class="days-lbl">Seg</div>
+        <div class="days-lbl">Ter</div><div class="days-lbl">Qua</div>
+        <div class="days-lbl">Qui</div><div class="days-lbl">Sex</div>
+        <div class="days-lbl">Sáb</div>
+      </div>
+      <div class="days-grid" id="daysGrid"></div>
+    </div>
+
+    <!-- DETALHE DO DIA SELECIONADO -->
+    <div class="card" id="dayDetail" style="display:none">
+      <div class="card-header">
+        <span class="card-title" id="dayDetailTitle">—</span>
+        <button onclick="closeDayDetail()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:0 2px;">✕</button>
+      </div>
+      <div id="dayDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- TAB HISTÓRICO -->
+  <div id="tab-historico" style="display:none">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Histórico completo</span></div>
+      <div class="sessions" id="fullHistory"><div class="no-uso">Carregando...</div></div>
+    </div>
+  </div>
+
+  <!-- TAB CALCULAR -->
+  <div id="tab-calc" style="display:none">
+    <div class="card">
+      <div class="card-header"><span class="card-title">💰 Calculadora mensal</span></div>
+      <div class="ig">
+        <div class="il">Mês de referência</div>
+        <div class="ir"><span class="ip">📅</span><input type="month" id="calcMonth"></div>
+      </div>
+      <div class="ig">
+        <div class="il">Consumo (m³) — preenchido automaticamente</div>
+        <div class="ir"><span class="ip">m³</span><input type="number" id="m3Input" placeholder="0.000" step="0.001" min="0"></div>
+      </div>
+      <div class="ig">
+        <div class="il">Valor do m³ neste mês (R$)</div>
+        <div class="ir"><span class="ip">R$</span><input type="number" id="priceInput" placeholder="6.80" step="0.01" min="0"></div>
+      </div>
+      <button class="calc-btn" onclick="calcular()">Calcular gasto da torneira</button>
+      <div class="result-box" id="resultBox" style="display:none">
+        <div><div class="rl">Gasto estimado</div><div class="rv" id="rv">R$ 0,00</div></div>
+        <div class="rd" id="rd"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<button class="fab" id="fab" onclick="loadData()" title="Atualizar">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+  </svg>
+</button>
+
+<script>
+// ============================================================
+//  Firebase
+// ============================================================
+const FB = "https://controle-jardim-default-rtdb.firebaseio.com";
+
+// ============================================================
+//  CANVAS — partículas + orbs bioluminescentes
+// ============================================================
+(function(){
+  const cv = document.getElementById('bgCanvas');
+  const cx = cv.getContext('2d');
+  let W, H, parts = [];
+
+  function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+
+  function mkPart(){
+    return {
+      x: Math.random()*W, y: Math.random()*H,
+      r: Math.random()*1.6+0.3,
+      vx:(Math.random()-.5)*.22, vy:-Math.random()*.35-.08,
+      a: Math.random()*.45+.08,
+      life:0, max:180+Math.random()*320
+    };
+  }
+
+  const orbs=[
+    {px:.12,py:.18,pr:.38,c:'rgba(14,165,233,0.045)'},
+    {px:.80,py:.62,pr:.30,c:'rgba(56,200,255,0.035)'},
+    {px:.50,py:.88,pr:.24,c:'rgba(125,232,255,0.025)'},
+    {px:.35,py:.45,pr:.18,c:'rgba(56,200,255,0.020)'},
+  ];
+
+  let t=0;
+  function frame(){
+    cx.clearRect(0,0,W,H); t+=.004;
+    orbs.forEach(o=>{
+      const x=o.px*W+Math.sin(t*.7+o.px*9)*28;
+      const y=o.py*H+Math.cos(t*.5+o.py*7)*18;
+      const r=o.pr*Math.min(W,H);
+      const g=cx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0,o.c); g.addColorStop(1,'transparent');
+      cx.fillStyle=g; cx.beginPath(); cx.arc(x,y,r,0,Math.PI*2); cx.fill();
+    });
+    parts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.life++;
+      if(p.life>p.max||p.y<-8){ Object.assign(p,mkPart()); return; }
+      const fade=Math.sin(p.life/p.max*Math.PI)*p.a;
+      cx.beginPath(); cx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      cx.fillStyle=`rgba(56,200,255,${fade})`; cx.fill();
+    });
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  parts=Array.from({length:70},()=>{ const p=mkPart(); p.life=Math.random()*p.max; return p; });
+  addEventListener('resize',resize);
+  frame();
+})();
+
+// ============================================================
+//  TAB INDICATOR
+// ============================================================
+function moveIndicator(btn){
+  const wrap=document.getElementById('tabsContainer');
+  const ind=document.getElementById('tabIndicator');
+  const r=btn.getBoundingClientRect(), pr=wrap.getBoundingClientRect();
+  ind.style.left=(r.left-pr.left)+'px';
+  ind.style.width=r.width+'px';
+}
+
+// ============================================================
+//  ESTADO
+// ============================================================
+let allData={}, chart=null, calMonth=new Date();
+
+// ============================================================
+//  CHUVA — Open-Meteo (sem API key, gratuito)
+// ============================================================
+const RAIN_LAT   = -23.5305;
+const RAIN_LON   = -46.7282;
+const RAIN_MIN_MM = 5.0;   // ≥5mm = equivale a uma rega no vaso
+let rainCache = {};         // chave: "YYYY-MM" → { "YYYY-MM-DD": mm, ... }
+
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded',()=>{
+  const now=new Date();
+  document.getElementById('calcMonth').value=
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('calcMonth').addEventListener('change',onMonthChange);
+  const ab=document.querySelector('.tab-btn.active');
+  if(ab) requestAnimationFrame(()=>moveIndicator(ab));
+  loadData();
+  setInterval(loadData,300000);
+});
+
+// ============================================================
+//  LOAD
+// ============================================================
+async function loadData(){
+  const fab=document.getElementById('fab');
+  fab.classList.add('spinning');
+  try{
+    const [dR,sR]=await Promise.all([
+      fetch(`${FB}/dados.json`),fetch(`${FB}/status.json`)
+    ]);
+    if(!dR.ok) throw new Error('HTTP '+dR.status);
+    allData=(await dR.json())||{};
+    const status=(await sR.json())||{};
+    updateUI(status);
+    document.getElementById('errBanner').style.display='none';
+  }catch(e){
+    console.error(e);
+    document.getElementById('errBanner').style.display='block';
+    if(Object.keys(allData).length) updateUI({});
+  }finally{
+    fab.classList.remove('spinning');
+    document.getElementById('loading').classList.add('hide');
+  }
+}
+
+// ============================================================
+//  ANIMAÇÃO DE NÚMERO
+// ============================================================
+function animNum(el, to, dec){
+  const from=parseFloat(el.dataset.v||0)||0;
+  el.dataset.v=to;
+  const dur=700, t0=performance.now();
+  function step(now){
+    const p=Math.min((now-t0)/dur,1);
+    const e=1-Math.pow(1-p,3);
+    el.textContent=(from+(to-from)*e).toFixed(dec).replace('.',',');
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ============================================================
+//  UI
+// ============================================================
+function updateUI(status){
+  const today=dateStr(new Date());
+  const liters=(allData[today]||{}).litros||0;
+  const faucetOn=status.torneira||false;
+
+  // Device badge
+  let deviceOnline=status.dispositivo==='online';
+  if(deviceOnline&&status.ultimaAtualizacao){
+    try{
+      const diff=(Date.now()-new Date(status.ultimaAtualizacao.replace(' ','T')))/60000;
+      if(diff>10) deviceOnline=false;
+    }catch(e){}
+  }
+  const badge=document.getElementById('deviceBadge');
+  badge.className='badge'+(deviceOnline?'':' off');
+  document.getElementById('deviceStatus').textContent=deviceOnline?'Online':'Offline';
+
+  // Hero
+  animNum(document.getElementById('heroLiters'), liters, 1);
+  const sv=document.getElementById('heroStatus');
+  sv.textContent=faucetOn?'● Ligada':'○ Desligada';
+  sv.className='hs-v '+(faucetOn?'on':'off');
+
+  // Mês
+  const ms=today.slice(0,7);
+  let mTotal=0,active=0;
+  monthDays(ms).forEach(d=>{const v=(allData[d]||{}).litros||0;mTotal+=v;if(v>.1)active++;});
+  document.getElementById('heroMonth').textContent=fmtL(mTotal);
+  document.getElementById('heroDays').textContent=active+' dias';
+  animNum(document.getElementById('avgDaily'), active>0?mTotal/active:0, 1);
+  animNum(document.getElementById('monthM3'),  mTotal/1000, 3);
+  document.getElementById('m3Input').value=(mTotal/1000).toFixed(3);
+
+  const upd=status.ultimaAtualizacao;
+  document.getElementById('lastUpdate').textContent=
+    upd?'⟳ atualizado '+relTime(upd):'⟳ aguardando dados do sensor...';
+
+  buildChart(); buildSessions(); buildCalendar(); buildHistory();
+}
+
+// ============================================================
+//  GRÁFICO
+// ============================================================
+function buildChart(){
+  const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const labels=[],values=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    labels.push(DIAS[d.getDay()]);
+    values.push((allData[dateStr(d)]||{}).litros||0);
+  }
+  document.getElementById('weekTotal').textContent=fmtL(values.reduce((a,b)=>a+b,0))+' total';
+  const ctx=document.getElementById('weekChart').getContext('2d');
+  if(chart){chart.destroy();chart=null;}
+  const mx=Math.max(...values,1);
+  chart=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{
+      data:values,
+      backgroundColor:values.map(v=>v<.1?'rgba(56,200,255,0.05)':v===mx?'rgba(56,200,255,0.28)':'rgba(56,200,255,0.14)'),
+      borderColor:values.map(v=>v<.1?'rgba(56,200,255,0.10)':v===mx?'#38c8ff':'rgba(56,200,255,0.40)'),
+      borderWidth:1.5,borderRadius:9,borderSkipped:false
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(4,16,34,0.95)',
+          borderColor:'rgba(56,200,255,0.22)',borderWidth:1,
+          titleColor:'#4a7a8a',bodyColor:'#dff4ff',
+          callbacks:{label:c=>c.raw<.1?'Sem uso':fmtL(c.raw)+' L'}
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a7a8a',font:{family:'JetBrains Mono',size:10}}},
+        y:{grid:{color:'rgba(56,200,255,0.05)'},border:{display:false},
+           ticks:{color:'#4a7a8a',font:{family:'JetBrains Mono',size:10},callback:v=>v+'L'}}
+      },
+      animation:{duration:900,easing:'easeOutQuart'}
+    }
+  });
+}
+
+// ============================================================
+//  SESSÕES
+// ============================================================
+function buildSessions(){
+  const list=document.getElementById('sessionsList');
+  list.innerHTML='';
+  const items=[];
+  for(let i=0;i<10;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    items.push({v:(allData[dateStr(d)]||{}).litros||0,i,d});
+  }
+  const mx=Math.max(...items.map(x=>x.v),1);
+  items.forEach(({v,i,d},idx)=>{
+    const el=document.createElement('div');
+    el.className='si';
+    el.style.animationDelay=(idx*45)+'ms';
+    const lbl=i===0?'Hoje':i===1?'Ontem':fmtDate(d);
+    el.innerHTML=`
+      <span class="si-date">${lbl}</span>
+      <div class="bw"><div class="b" style="width:${v<.1?0:Math.round(v/mx*100)}%"></div></div>
+      <span class="si-l">${v<.1?'<span>sem uso</span>':fmtL(v)+' <span>L</span>'}</span>`;
+    list.appendChild(el);
+  });
+}
+
+// ============================================================
+//  CHUVA — busca precipitação mensal no Open-Meteo
+// ============================================================
+async function fetchRain(year, month) {
+  const key = `${year}-${String(month+1).padStart(2,'0')}`;
+  if (rainCache[key]) return rainCache[key];
+
+  // Tenta recuperar do sessionStorage
+  const cached = sessionStorage.getItem('rain_' + key);
+  if (cached) {
+    rainCache[key] = JSON.parse(cached);
+    return rainCache[key];
+  }
+
+  const start = `${year}-${String(month+1).padStart(2,'0')}-01`;
+  const lastDay = new Date(year, month+1, 0).getDate();
+  const end   = `${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+
+  try {
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${RAIN_LAT}&longitude=${RAIN_LON}&start_date=${start}&end_date=${end}&daily=precipitation_sum&timezone=America%2FSao_Paulo`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const map = {};
+    (data.daily?.time || []).forEach((d, i) => {
+      map[d] = data.daily.precipitation_sum[i] || 0;
+    });
+    rainCache[key] = map;
+    try { sessionStorage.setItem('rain_' + key, JSON.stringify(map)); } catch(e){}
+    return map;
+  } catch(e) {
+    console.warn('Open-Meteo indisponível:', e);
+    return {};
+  }
+}
+
+// ============================================================
+//  CALENDÁRIO
+// ============================================================
+async function buildCalendar(){
+  const grid=document.getElementById('daysGrid');
+  grid.innerHTML='';
+  const y=calMonth.getFullYear(),m=calMonth.getMonth();
+  const ms=`${y}-${String(m+1).padStart(2,'0')}`;
+  const MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+             'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  document.getElementById('calLabel').textContent=MES[m];
+  const first=new Date(y,m,1).getDay();
+  const total=new Date(y,m+1,0).getDate();
+  const today=dateStr(new Date());
+  const allL=monthDays(ms).map(k=>(allData[k]||{}).litros||0);
+
+  // Busca dados de chuva (pode vir do cache)
+  const rainMap = await fetchRain(y, m);
+
+  for(let i=0;i<first;i++){const e=document.createElement('div');e.className='day empty';grid.appendChild(e);}
+  for(let d=1;d<=total;d++){
+    const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const l=(allData[key]||{}).litros||0;
+    const isToday=key===today;
+    const isHigh=l>0&&l===Math.max(...allL);
+    const rainMM = rainMap[key] || 0;
+    const rained  = rainMM >= RAIN_MIN_MM;
+    const cell=document.createElement('div');
+    cell.className='day '+(isToday?'today':isHigh&&l>0?'high':l>.1?'used':'');
+    cell.title = '';
+    cell.style.cursor = 'pointer';
+    cell.dataset.key = key;
+    cell.dataset.day = d;
+    cell.innerHTML=`${d}${l>.1||isToday?'<div class="day-dot"></div>':''}${rained?'<span class="rain-drop">💧</span>':''}`;
+    cell.addEventListener('click', () => openDayDetail(key, d, m, y));
+    grid.appendChild(cell);
+  }
+}
+
+// ============================================================
+//  HISTÓRICO
+// ============================================================
+function buildHistory(){
+  const list=document.getElementById('fullHistory');
+  list.innerHTML='';
+  const entries=Object.entries(allData)
+    .filter(([k])=>/^\d{4}-\d{2}-\d{2}$/.test(k))
+    .sort((a,b)=>b[0].localeCompare(a[0])).slice(0,90);
+  if(!entries.length){list.innerHTML='<div class="no-uso">Nenhum dado ainda.</div>';return;}
+  const mx=Math.max(...entries.map(([,v])=>v?.litros||0),1);
+  entries.forEach(([key,val],idx)=>{
+    const l=val?.litros||0;
+    const d=new Date(key+'T12:00:00');
+    const el=document.createElement('div');
+    el.className='si'; el.style.animationDelay=(idx*25)+'ms';
+    el.innerHTML=`
+      <span class="si-date">${fmtDate(d)}</span>
+      <div class="bw"><div class="b" style="width:${l<.1?0:Math.round(l/mx*100)}%"></div></div>
+      <span class="si-l">${l<.1?'<span>sem uso</span>':fmtL(l)+' <span>L</span>'}</span>`;
+    list.appendChild(el);
+  });
+}
+
+// ============================================================
+//  CALCULADORA
+// ============================================================
+function onMonthChange(){
+  const ms=document.getElementById('calcMonth').value;
+  if(!ms)return;
+  let t=0;
+  monthDays(ms).forEach(d=>t+=(allData[d]||{}).litros||0);
+  document.getElementById('m3Input').value=(t/1000).toFixed(3);
+  document.getElementById('resultBox').style.display='none';
+}
+function calcular(){
+  const ms=document.getElementById('calcMonth').value;
+  const m3=parseFloat(document.getElementById('m3Input').value)||0;
+  const price=parseFloat(document.getElementById('priceInput').value)||0;
+  if(m3<=0||price<=0){alert('Preencha o consumo em m³ e o valor do m³.');return;}
+  const total=m3*price;
+  const [y,mo]=ms.split('-');
+  const MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+             'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const box=document.getElementById('resultBox');
+  box.style.display='flex';
+  box.style.animation='none'; void box.offsetWidth; box.style.animation='popIn 0.4s cubic-bezier(0.22,1,0.36,1) both';
+  document.getElementById('rv').textContent='R$ '+total.toFixed(2).replace('.',',');
+  document.getElementById('rd').innerHTML=
+    `${m3.toFixed(3).replace('.',',')} m³<br>× R$ ${price.toFixed(2).replace('.',',')} / m³<br>${MES[parseInt(mo)-1]}/${y}`;
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function showTab(name,btn){
+  ['semana','mes','historico','calc'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===name?'':'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn){btn.classList.add('active');moveIndicator(btn);}
+  if(name==='mes') buildCalendar();
+}
+
+function changeMonth(d){calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+d,1);buildCalendar();}
+
+// ============================================================
+//  DETALHE DO DIA
+// ============================================================
+function openDayDetail(key, day, month, year) {
+  const MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+             'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const dt = new Date(key + 'T12:00:00');
+  const diaSemana = DIAS[dt.getDay()];
+
+  // Marca célula como selecionada
+  document.querySelectorAll('.day.selected').forEach(c => c.classList.remove('selected'));
+  const clicked = document.querySelector(`.day[data-key="${key}"]`);
+  if (clicked) clicked.classList.add('selected');
+
+  const title = document.getElementById('dayDetailTitle');
+  title.textContent = `${diaSemana}, ${day} de ${MES[month]}`;
+
+  const body = document.getElementById('dayDetailBody');
+  const dayData = allData[key] || {};
+  const litros = dayData.litros || 0;
+  const sessoes = dayData.sessoes ? Object.values(dayData.sessoes) : [];
+
+  if (litros < 0.1 && sessoes.length === 0) {
+    body.innerHTML = `<div class="no-uso" style="padding:8px 0">Nenhum uso registrado neste dia.</div>`;
+  } else {
+    // Total do dia
+    let html = `
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:16px">
+        <span style="font-size:36px;font-weight:900;background:linear-gradient(135deg,#fff 20%,var(--accent3) 60%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${fmtL(litros)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">litros no total</span>
+      </div>`;
+
+    // Sessões individuais
+    if (sessoes.length > 0) {
+      const mxS = Math.max(...sessoes.map(s => s.litros || 0), 1);
+      html += `<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Sessões da mangueira</div>`;
+      html += `<div class="sessions">`;
+      sessoes
+        .sort((a, b) => (a.inicio || '').localeCompare(b.inicio || ''))
+        .forEach((s, i) => {
+          const l = s.litros || 0;
+          const inicio = s.inicio ? s.inicio.slice(11, 16) : '—';
+          const fim    = s.fim    ? s.fim.slice(11, 16)    : '—';
+          html += `
+            <div class="si" style="animation-delay:${i*60}ms">
+              <span class="si-date">${inicio}–${fim}</span>
+              <div class="bw"><div class="b" style="width:${Math.round(l/mxS*100)}%"></div></div>
+              <span class="si-l">${fmtL(l)} <span>L</span></span>
+            </div>`;
+        });
+      html += `</div>`;
+    } else {
+      html += `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:4px">Sem detalhes de sessão registrados.</div>`;
+    }
+
+    body.innerHTML = html;
+  }
+
+  const panel = document.getElementById('dayDetail');
+  panel.style.display = 'block';
+  panel.style.animation = 'none';
+  void panel.offsetWidth;
+  panel.style.animation = 'slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both';
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+}
+
+function closeDayDetail() {
+  document.getElementById('dayDetail').style.display = 'none';
+  document.querySelectorAll('.day.selected').forEach(c => c.classList.remove('selected'));
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function dateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function monthDays(ms){
+  const [y,m]=ms.split('-').map(Number);
+  const total=new Date(y,m,0).getDate(),r=[];
+  for(let d=1;d<=total;d++) r.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  return r;
+}
+function fmtL(v){return v==null?'—':v.toFixed(1).replace('.',',')}
+function fmtDate(d){return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`}
+function relTime(ts){
+  try{
+    const d=new Date(ts.replace(' ','T'));
+    const diff=Math.floor((Date.now()-d)/1000);
+    if(diff<60) return 'agora mesmo';
+    if(diff<3600) return `há ${Math.floor(diff/60)} min`;
+    if(diff<86400) return `há ${Math.floor(diff/3600)}h`;
+    return `há ${Math.floor(diff/86400)} dias`;
+  }catch{return ts}
+}
+</script>
+</body>
+</html>
