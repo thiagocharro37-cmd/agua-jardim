@@ -388,6 +388,14 @@ header {
   font-size:11px; font-weight:500; min-width:54px; text-align:right;
 }
 .si-l span { font-size:8px; color:var(--text3); }
+.si-offline {
+  font-family:'JetBrains Mono',monospace;
+  font-size:8px; color:var(--amber);
+  background:rgba(251,191,36,0.10);
+  border:1px solid rgba(251,191,36,0.25);
+  border-radius:6px; padding:1px 5px;
+  margin-left:4px; white-space:nowrap;
+}
 .no-uso { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); }
 
 /* CALC */
@@ -726,7 +734,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const ab=document.querySelector('.tab-btn.active');
   if(ab) requestAnimationFrame(()=>moveIndicator(ab));
   loadData();
-  setInterval(loadData,300000);
+  setInterval(loadData, 90000);   // firmware envia a cada 1min; 90s é um bom balanço
 });
 
 // ============================================================
@@ -783,12 +791,17 @@ async function updateUI(status){
   if(deviceOnline&&status.ultimaAtualizacao){
     try{
       const diff=(Date.now()-new Date(status.ultimaAtualizacao.replace(' ','T')))/60000;
-      if(diff>10) deviceOnline=false;
+      if(diff>7) deviceOnline=false;  // firmware envia a cada 1min; 7min = margem segura
     }catch(e){}
   }
   const badge=document.getElementById('deviceBadge');
   badge.className='badge'+(deviceOnline?'':' off');
-  document.getElementById('deviceStatus').textContent=deviceOnline?'Online':'Offline';
+  const wifiNum = status.wifiAtivo || 1;
+  const wifiLabel = deviceOnline ? (wifiNum === 2 ? 'Online · WiFi 2' : 'Online') : 'Offline';
+  document.getElementById('deviceStatus').textContent = wifiLabel;
+  badge.title = deviceOnline
+    ? `WiFi ${wifiNum} ativo · última sync ${status.ultimaAtualizacao||'—'}`
+    : 'Dispositivo offline';
 
   // Hero
   animNum(document.getElementById('heroLiters'), liters, 1);
@@ -858,7 +871,9 @@ function buildChart(){
 }
 
 // ============================================================
-//  SESSÕES
+//  SESSÕES — tab 7 dias
+//  Hoje: mostra sessões individuais (com hora) se disponíveis
+//  Dias anteriores: mostra total do dia
 // ============================================================
 function buildSessions(){
   const list=document.getElementById('sessionsList');
@@ -866,9 +881,57 @@ function buildSessions(){
   const items=[];
   for(let i=0;i<10;i++){
     const d=new Date();d.setDate(d.getDate()-i);
-    items.push({v:(allData[dateStr(d)]||{}).litros||0,i,d});
+    items.push({v:(allData[dateStr(d)]||{}).litros||0,i,d,key:dateStr(d)});
   }
   const mx=Math.max(...items.map(x=>x.v),1);
+
+  // Hoje: expande sessões individuais se existirem
+  const todayData = allData[items[0].key] || {};
+  const todaySessoes = todayData.sessoes ? Object.values(todayData.sessoes) : [];
+  if(todaySessoes.length > 0){
+    const mxS = Math.max(...todaySessoes.map(s=>s.litros||0), 1);
+    // Header "Hoje"
+    const header = document.createElement('div');
+    header.className='si';
+    header.style.background='rgba(56,200,255,0.04)';
+    header.style.borderColor='rgba(56,200,255,0.22)';
+    header.innerHTML=`
+      <span class="si-date" style="color:var(--accent)">Hoje</span>
+      <div class="bw"><div class="b" style="width:${Math.round(items[0].v/mx*100)}%"></div></div>
+      <span class="si-l">${fmtL(items[0].v)} <span>L</span></span>`;
+    list.appendChild(header);
+    // Sessões individuais
+    todaySessoes
+      .sort((a,b)=>(a.inicio||'').localeCompare(b.inicio||''))
+      .forEach((s,i)=>{
+        const l=s.litros||0;
+        const inicio=s.inicio?s.inicio.slice(11,16):'—';
+        const fim=s.fim?s.fim.slice(11,16):'—';
+        const offBadge=s.offline?'<span class="si-offline">offline</span>':'';
+        const el=document.createElement('div');
+        el.className='si';
+        el.style.cssText='margin-left:16px;animation-delay:'+(i*45)+'ms;opacity:0.85';
+        el.innerHTML=`
+          <span class="si-date" style="font-size:9px">${inicio}–${fim}${offBadge}</span>
+          <div class="bw"><div class="b" style="width:${Math.round(l/mxS*100)}%"></div></div>
+          <span class="si-l">${fmtL(l)} <span>L</span></span>`;
+        list.appendChild(el);
+      });
+    // Dias anteriores
+    items.slice(1).forEach(({v,i,d},idx)=>{
+      const el=document.createElement('div');
+      el.className='si';
+      el.style.animationDelay=((idx+todaySessoes.length+1)*45)+'ms';
+      el.innerHTML=`
+        <span class="si-date">${i===1?'Ontem':fmtDate(d)}</span>
+        <div class="bw"><div class="b" style="width:${v<.1?0:Math.round(v/mx*100)}%"></div></div>
+        <span class="si-l">${v<.1?'<span>sem uso</span>':fmtL(v)+' <span>L</span>'}</span>`;
+      list.appendChild(el);
+    });
+    return;
+  }
+
+  // Sem sessões individuais: exibe resumo por dia normalmente
   items.forEach(({v,i,d},idx)=>{
     const el=document.createElement('div');
     el.className='si';
@@ -1091,7 +1154,11 @@ function openDayDetail(key, day, month, year) {
 
     if (sessoes.length > 0) {
       const mxS = Math.max(...sessoes.map(s => s.litros || 0), 1);
-      html += `<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Sessões da mangueira</div>`;
+      const offlineCount = sessoes.filter(s => s.offline).length;
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Sessões da mangueira</span>
+        ${offlineCount ? `<span class="si-offline">⚡ ${offlineCount} recuperada${offlineCount>1?'s':''} offline</span>` : ''}
+      </div>`;
       html += `<div class="sessions">`;
       sessoes
         .sort((a, b) => (a.inicio || '').localeCompare(b.inicio || ''))
@@ -1099,9 +1166,10 @@ function openDayDetail(key, day, month, year) {
           const l = s.litros || 0;
           const inicio = s.inicio ? s.inicio.slice(11, 16) : '—';
           const fim    = s.fim    ? s.fim.slice(11, 16)    : '—';
+          const offBadge = s.offline ? '<span class="si-offline">offline</span>' : '';
           html += `
             <div class="si" style="animation-delay:${i*60}ms">
-              <span class="si-date">${inicio}–${fim}</span>
+              <span class="si-date">${inicio}–${fim}${offBadge}</span>
               <div class="bw"><div class="b" style="width:${Math.round(l/mxS*100)}%"></div></div>
               <span class="si-l">${fmtL(l)} <span>L</span></span>
             </div>`;
